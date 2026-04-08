@@ -4,33 +4,33 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:smart_iot/login.dart';
 import 'firebase_options.dart';
 import 'package:smart_iot/auth.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:smart_iot/aes_encrypt.dart';
-import 'package:smart_iot/motion_service.dart';
 import 'package:smart_iot/notification_service.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AesEncrypt.initialize();
-  await FlutterSecureStorage().write(key: 'aes_key', value: '1234567890123456');
-  await MotionService.initialize();
-  await NotificationService.initialize();
-  // final aesKeyService = AESKeyService();
-  // await aesKeyService
-  //     .initializeAESKey(); // Ensure AES key is initialized before Firebase
-  //final storage = FlutterSecureStorage();
+
+  // Initialize Firebase first as it's critical for AuthGate
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(MyApp());
+
+  // Run the app IMMEDIATELY
+  runApp(const MyApp());
+
+  // Load these in the background so they don't block the splash screen
+  Future.wait([
+    AesEncrypt.initialize(),       // ✅ saves 'aes_secret_key' to secure storage
+    NotificationService.initialize(), // ✅ sets up notifications
+  ]);
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -56,10 +56,41 @@ class AuthGate extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+          return FutureBuilder(
+            future: Future.delayed(const Duration(minutes: 10)),
+            builder: (context, timeoutSnapshot) {
+              if (timeoutSnapshot.connectionState == ConnectionState.done) {
+                return Scaffold(
+                  body: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.wifi_off, size: 50, color: Colors.red),
+                        const Text("Connection Timeout"),
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.pushReplacementNamed(context, '/'),
+                          child: const Text("Retry"),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            },
           );
-        } else if (snapshot.hasData) {
+        }
+
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(child: Text("Error: ${snapshot.error}")),
+          );
+        }
+
+        if (snapshot.hasData) {
           return const Auth();
         } else {
           return const Login();

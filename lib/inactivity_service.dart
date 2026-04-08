@@ -9,9 +9,9 @@ class InactivityService {
   InactivityService._internal();
 
   Timer? _timer;
-  Duration _timeout = const Duration(seconds: 10);
+  Duration _timeout = const Duration(minutes: 10);
 
-  /// Initialize inactivity tracking
+  /// Initialize inactivity trackingc
   void initialize({Duration? timeout}) {
     _timeout = timeout ?? _timeout;
     _startTimer();

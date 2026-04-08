@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
 import 'package:smart_iot/home.dart';
-import 'package:smart_iot/login.dart';
+// import 'package:smart_iot/login.dart';
 import 'package:smart_iot/second_auth.dart';
 
 class Auth extends StatefulWidget {
@@ -16,34 +16,18 @@ class _AuthState extends State<Auth> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        // 🔹 Still loading Firebase user state
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
+    // REMOVED the StreamBuilder here!
+    // AuthGate already confirmed we have a user.
 
-        // 🔹 User NOT logged in → go to LoginPage
-        if (!snapshot.hasData) {
-          return const Login();
-        }
+    if (!_biometricPassed) {
+      return SecondAuth(
+        onAuthenticated:
+            () => setState(() {
+              _biometricPassed = true;
+            }),
+      );
+    }
 
-        // 🔹 User is logged in, but hasn’t passed biometric yet
-        if (!_biometricPassed) {
-          return SecondAuth(
-            onAuthenticated:
-                () => setState(() {
-                  _biometricPassed = true;
-                }),
-          );
-        }
-
-        // 🔹 User is logged in AND passed biometric → show Home
-        return const Home();
-      },
-    );
+    return const Home();
   }
 }
